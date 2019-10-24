@@ -303,9 +303,9 @@ def get_string_user_input(message, lower=True):
 
 def get_sleep_time_user_input():
     sleep_time = 59
-    while sleep_time < 59:
+    while sleep_time < 60:
         sleep_time = get_int_input('\nType the number of seconds to wait between requests and press enter. \n')
-        if sleep_time < 59:
+        if sleep_time < 60:
             print_and_log('Must supply an integer greater than 59.', YELLOW)
     return sleep_time
 
