@@ -10,6 +10,7 @@ Requires you have:
 ### Installation:
 1. [Download the latest release](https://github.com/graulr/xi_day_trader/releases) and unzip
 2. Run the installer for your respective operating system
+![](https://i.imgur.com/uvHQdTl.gif)
 
 ### One time setup:
 
