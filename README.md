@@ -30,5 +30,5 @@ Requires you have:
 #### 1. Once prompted to enter the ffxiah url, choose an item that you would like to monitor, copy the url, and paste the url into the console.
 ![](https://i.imgur.com/pYREYJI.gif)
 
-#### 2. Once the criteria you setup for the item has been met, a modal will display on the screen and a notification will be emailed to the address you setup earlier.
+#### 2. When the conditions for your search are met, a modal will display on the screen and a notification will be emailed to the address you setup earlier.
 ![](https://i.imgur.com/Ipq9kiE.gif)
