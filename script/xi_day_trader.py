@@ -302,11 +302,11 @@ def get_string_user_input(message, lower=True):
 
 
 def get_sleep_time_user_input():
-    sleep_time = 59
-    while sleep_time < 60:
-        sleep_time = get_int_input('\nType the number of seconds to wait between requests and press enter. \n')
-        if sleep_time < 60:
-            print_and_log('Must supply an integer greater than 59.', YELLOW)
+    sleep_time = 0
+    while sleep_time < 1:
+        sleep_time = get_int_input('\nType the number of minutes to wait between requests and press enter. \n')
+        if sleep_time < 1:
+            print_and_log('Must supply an integer greater than 0.', YELLOW)
     return sleep_time
 
 
@@ -464,13 +464,13 @@ def print_and_log(message, color=None, indent=False, flush=False):
 
 
 def sleep(sleep_time):
-    print_and_log('Sleeping for %s seconds \n' % sleep_time, indent=True, flush=True)
-    time.sleep(sleep_time)
+    print_and_log('Sleeping for %s minutes \n' % sleep_time, indent=True, flush=True)
+    time.sleep(sleep_time*60)
 
 
 def print_failure_and_sleep(consecutive_failures):
     print_and_log('Re-attempting %s out of 5 times after sleeping' % consecutive_failures, YELLOW)
-    sleep(60)
+    sleep(1)
 
 
 # Run the script
