@@ -5,10 +5,12 @@
 - Wished you knew the perfect time to **sell** at the **high**?
 - Wanted to spend less time checking ffxiah?
 
-### xi_day_trader is a script that monitors ffxiah.com for you and can do all of these things! 
+### xi_day_trader is a script that can do all of these things!
+#### Simply supply a ffxiah url and specify when you want to be notified.
 - Windows & Mac compatible
+- Notifies via email
 - Multiple scripts can run at a time
-- Double click to run
+- Double click to run & install
 
 # Setup
 Requires you have: 
