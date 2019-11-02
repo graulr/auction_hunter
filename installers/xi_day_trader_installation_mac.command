@@ -1,4 +1,7 @@
 #!/bin/sh
+resize -s 50 100
+stty columns 100
+stty rows 50
 sudo easy_install pip
 pip install requests --user
 pip install beautifulsoup4 --user

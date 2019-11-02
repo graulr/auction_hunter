@@ -1,3 +1,4 @@
+mode con:cols=100
 CALL C:\Python27\python get-pip.py
 CALL C:\Python27\Scripts\pip install requests --user
 CALL C:\Python27\Scripts\pip install beautifulsoup4 --user
