@@ -9,9 +9,7 @@
 ##### Simply supply a ffxiah url and specify when you want to be notified.
 
 # Setup
-- Windows & Mac compatible
-
-This script requires you have: 
+This script works on Windows & Mac and requires you have:
 - python 2.7.xx [installed](https://www.python.org/downloads/release/python-2716/)
 - Created a free [send grid account](https://signup.sendgrid.com/)
 
