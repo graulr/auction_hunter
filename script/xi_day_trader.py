@@ -36,6 +36,9 @@ SERVER_NAME_TO_SID = {
     'valefor': '9',
 }
 
+PATH_TO_SCRIPT = os.path.dirname(os.path.abspath(__file__))
+XI_DAY_TRADER_DIRECTORY_PATH = PATH_TO_SCRIPT[0:len(PATH_TO_SCRIPT)-6]
+
 HEADERS = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) ' +
                          'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
 
@@ -361,7 +364,7 @@ def setup_logging(item_name):
         logging.root.removeHandler(handler)
 
     # Setup logging
-    filename = 'logs/%s.log' % (item_name)
+    filename = get_combined_path('logs/%s.log' % (item_name))
     logging.basicConfig(filename=filename, filemode='w', level=logging.DEBUG)
 
 
@@ -489,11 +492,15 @@ def sleep(sleep_time):
     time.sleep(sleep_time * 60)
 
 
+def get_combined_path(path):
+    return '%s/%s' % (XI_DAY_TRADER_DIRECTORY_PATH, path)
+
+
 def create_folder(folder_name):
     has_folder = False
 
     # Check if a folder exists
-    files = [f for f in os.listdir('../')]
+    files = [f for f in os.listdir(XI_DAY_TRADER_DIRECTORY_PATH)]
     for f in files:
         if f == folder_name:
             has_folder = True
@@ -502,7 +509,7 @@ def create_folder(folder_name):
     # Create a folder if none exists
     if not has_folder:
         try:
-            os.mkdir(folder_name)
+            os.mkdir(get_combined_path(folder_name))
         except OSError:
             log('\nCreation of the %s directory failed' % folder_name)
         else:
@@ -511,7 +518,7 @@ def create_folder(folder_name):
 
 def get_file_data(file_path):
     try:
-        f = open(file_path, 'r')
+        f = open(get_combined_path(file_path), 'r')
     except IOError:
         return None
     fl = f.readlines()
@@ -522,7 +529,7 @@ def get_file_data(file_path):
 
 
 def store_data(file_path, data):
-    f = open(file_path, 'w+')
+    f = open(get_combined_path(file_path), 'w+')
     f.write(data)
     f.close()
     log('Successfully saved to %s' % file_path)
