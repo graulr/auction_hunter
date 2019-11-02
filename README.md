@@ -25,7 +25,7 @@ Requires you have:
 
 ### One time setup:
 
-#### 1. Open the unzipped xi_day_trader folder, click `xi_day_trader_win` or `xi_day_trader_mac` depending on your operating system and create a shortcut to your desktop.
+#### 1. Open the unzipped xi_day_trader folder, click `xi_day_trader_win` or `xi_day_trader_mac` depending on your operating system and create a shortcut to your desktop.  Then double click the shortcut to start the script.
 ![](https://i.imgur.com/gwgT0po.gif)
 
 #### 2. While logged into send grid, navigate to account management and then to the api keys section.  Create a new full access key, copy it, and paste it into the console.
