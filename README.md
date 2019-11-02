@@ -1,11 +1,11 @@
 # xi_day_trader
-Have you ever:
+### Have you ever:
 - Struggled to get items that are rarely on the auction house?
 - Wished you knew the perfect time to **buy** at the **low**?
 - Wished you knew the perfect time to **sell** at the **high**?
 - Wanted to spend less time checking ffxiah?
 
-xi_day_trader is a script that monitors ffxiah.com for you and can do all of these things! 
+### xi_day_trader is a script that monitors ffxiah.com for you and can do all of these things! 
 - Windows & Mac compatible
 - Multiple scripts can run at a time
 - Double click to run
