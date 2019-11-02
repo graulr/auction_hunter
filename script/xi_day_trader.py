@@ -4,17 +4,18 @@ import logging
 import os
 import requests
 import time
-import tkMessageBox
 import sys
 
 from bs4 import BeautifulSoup
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
 
-# Print color constants
 RED = 'red'
 YELLOW = 'yellow'
 GREEN = 'green'
+
+MAX_RETRIES = 5
+MAX_LINE_LENGTH = 57
 
 SERVER_NAME_TO_SID = {
     'asura': '28',
@@ -40,46 +41,48 @@ HEADERS = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) ' +
 
 
 # This script fetches the supplied ffxiah url, checks the item value, & repeats util
-# the item value matches the users specification.  The user is then notified via modal & email.
+# the item value matches the users specification.  The user is then notified via email.
 def main():
     colorama.init()
-    print_and_log('\n-----================= xi_day_trader =================-----', GREEN)
+    print_and_log('\n-----================ xi_day_trader ================-----', GREEN)
     print_and_log('Type ctrl + c at any time to quit (cmd + c for mac).', YELLOW)
 
     # Create the data folder if it does not exist
     create_folder('data')
 
-    # Get the stored api key or get one from the user and store it
-    setup_send_grid()
+    # Get the stored api key or solicit one and store it
+    get_send_grid_key()
 
-    # Get the stored server id or get one from the user and store it
+    # Get the stored notification address or solicit one and store it
+    get_email_notification_address()
+
+    # Get the stored server id or solicit one and store it
     cookies = {'sid': get_server_id()}
 
-    # Get the ffxi url to check
-    url = get_string_user_input('Paste the ffxiah url for the item and press enter.')
-
-    # Process the item_name name from the url
-    try:
-        item_name = get_item_name(url)
-    except ValueError, e:
-        print_and_log(e, RED)
-        return
-
-    # Get the stored sleep time or get one from the user and store it
+    # Get the stored sleep time or solicit one and store it
     sleep_time = get_sleep_time()
 
-    # Create the logging folder and configure the logger
-    setup_logging(item_name)
+    restart_options = {'should_restart': True}
+    while restart_options['should_restart']:
 
-    # Get the config options from the user
-    config_options = get_config_options(item_name)
+        # Get the ffxi url and item to check
+        url, item_name = get_ffxiah_url_and_item()
 
-    # Begin checking:
-    check_ffxiah(cookies, url, item_name, sleep_time, config_options)
+        # Setup a logging file for the item
+        setup_logging(item_name)
+
+        # Get the config options from the user
+        config_options = get_config_options(item_name)
+
+        restart_options['should_retry'] = True
+        while restart_options['should_retry']:
+
+            # Start checking ffxiah and get any restart options afterwards
+            restart_options = check_ffxiah(cookies, url, item_name, sleep_time, config_options)
 
 
 def check_ffxiah(cookies, url, item_name, sleep_time, config_options):
-    print_and_log('\n-----================ Checking FFXIAH ================-----', GREEN)
+    print_and_log('\n-----=============== Checking FFXIAH ===============-----', GREEN)
 
     # Process url parameters for the request
     base_url, url_params = parse_url(url)
@@ -96,10 +99,10 @@ def check_ffxiah(cookies, url, item_name, sleep_time, config_options):
             response = requests.get(base_url, headers=HEADERS, cookies=cookies, params=url_params)
         except requests.ConnectionError, e:
             handle_and_log_error(consecutive_failures,
-                                 'Exception encountered attempting to request FFXIAH: \n%s' % e,
-                                 'Failed to request FFXIAH 5 consecutive times, exiting')
-            if consecutive_failures == 5:
-                break
+                                 'An exception was encountered requesting FFXIAH: \n%s' % e,
+                                 'Failed to request FFXIAH %s consecutive times.' % redify(MAX_RETRIES))
+            if consecutive_failures == MAX_RETRIES:
+                return get_should_retry()
             consecutive_failures += 1
             continue
 
@@ -111,9 +114,9 @@ def check_ffxiah(cookies, url, item_name, sleep_time, config_options):
         if not len(current_stock):
             handle_and_log_error(consecutive_failures,
                                  'Current stock was not found on the page',
-                                 'Failed to find current stock 5 consecutive times, exiting')
-            if consecutive_failures == 5:
-                break
+                                 'Failed to find current stock %s consecutive times.' % redify(MAX_RETRIES))
+            if consecutive_failures == MAX_RETRIES:
+                return get_should_retry()
             consecutive_failures += 1
             continue
 
@@ -124,9 +127,9 @@ def check_ffxiah(cookies, url, item_name, sleep_time, config_options):
         except Exception, e:
             handle_and_log_error(consecutive_failures,
                                  'Could not parse stock count: \n%s' % e,
-                                 'Failed to parse stock count 5 consecutive times, exiting')
-            if consecutive_failures == 5:
-                break
+                                 'Failed to parse stock count %s consecutive times.' % redify(MAX_RETRIES))
+            if consecutive_failures == MAX_RETRIES:
+                return get_should_retry()
             consecutive_failures += 1
             continue
 
@@ -142,9 +145,9 @@ def check_ffxiah(cookies, url, item_name, sleep_time, config_options):
 
             # No items found
             if is_stock_empty(total_count_in_stock):
-                print_and_log('Found 0 %s!' % item_name, color=GREEN, indent=True, flush=True)
-                notify_success(item_name, 'Item Vacant', 'There are 0 %s up for sale' % item_name, url)
-                break
+                print_and_log('Found 0 %s!' % item_name, color=GREEN, indent=True)
+                send_email(item_name, url, 'There are 0 %s up for sale' % item_name)
+                return get_should_restart()
 
             # Items in stock
             else:
@@ -164,10 +167,10 @@ def check_ffxiah(cookies, url, item_name, sleep_time, config_options):
             # Within range
             if is_stock_within_range(total_count_in_stock, lower_bound, upper_bound):
                 print_and_log('Found %s %s! (range %s - %s)' % (total_count_in_stock, item_name,
-                                                                lower_bound, upper_bound), color=GREEN, indent=True, flush=True)
-                notify_success(item_name, 'Item Within Range', 'There %s %s %s up for sale' %
-                               (get_is_or_are(total_count_in_stock), total_count_in_stock, item_name), url)
-                break
+                                                                lower_bound, upper_bound), color=GREEN, indent=True)
+                send_email(item_name, url, 'There %s %s %s up for sale' % (get_is_or_are(total_count_in_stock),
+                                                                           total_count_in_stock, item_name))
+                return get_should_restart()
 
             # Out of range
             else:
@@ -190,24 +193,300 @@ def check_ffxiah(cookies, url, item_name, sleep_time, config_options):
 
             # The item is in stock
             else:
-                print_and_log('Found %s %s!' % (total_count_in_stock, item_name), color=GREEN, indent=True, flush=True)
-                notify_success(item_name, 'Item Found', 'There %s %s %s up for sale' % (
-                    get_is_or_are(total_count_in_stock), total_count_in_stock, item_name), url)
-                break
+                print_and_log('Found %s %s!' % (total_count_in_stock, item_name), color=GREEN, indent=True)
+                send_email(item_name, url, 'There %s %s %s up for sale' % (get_is_or_are(total_count_in_stock),
+                                                                           total_count_in_stock, item_name))
+                return get_should_restart()
 
 
-def is_stock_empty(total_count_in_stock):
-    return total_count_in_stock == 0
+#######################################################################################################################
+#                                                      User Input                                                     #
+#######################################################################################################################
+def get_int_user_input(message):
+    answer = None
+    while not isinstance(answer, int):
+        answer = raw_input(message)
+        try:
+            answer = int(answer)
+        except:
+            print_and_log('Expected an integer, received %s' % type(answer), YELLOW)
+    return answer
 
 
-def is_stock_within_range(total_count_in_stock, lower_bound, upper_bound):
-    return total_count_in_stock >= lower_bound and total_count_in_stock <= upper_bound
+def get_string_user_input(message, lower=True):
+    user_input = ''
+    while not user_input:
+        user_input = raw_input('\n%s \n' % message).strip()
+        if lower:
+            user_input = user_input.lower()
+    return user_input
+
+
+def get_option_user_input(options, message):
+    answer = None
+    while answer not in options:
+        answer = raw_input(message)
+        answer = answer.lower().strip()
+    return answer
+
+
+def get_ffxiah_url_and_item():
+    item_name = ''
+    while not item_name:
+        url = get_string_user_input('Paste the %s for the item and press enter.' % greenify('ffixah url'))
+        try:
+            # Parse the item_name out of the url, accounting for stack pages
+            # Ex: https://www.ffxiah.com/item_name/4752/fire-crystal
+            #     https://www.ffxiah.com/item_name/4096/fire-crystal/?stack=1
+            base_url, query_params = parse_url(url)
+            item_name_split_list = base_url.rsplit('/', 1)
+            if len(item_name_split_list) < 2:
+                raise ValueError('Must supply an entire ffxiah url')
+            item_name = item_name_split_list[1]
+
+            # The url was for a stack so add the suffix
+            if query_params:
+                item_name += '-stack'
+        except ValueError, e:
+            print_and_log(e, YELLOW)
+    return url, item_name
+
+
+def get_config_options(item_name):
+    message = line_breakify_message(('Would you like to be notified when %s is ' % item_name) +
+                                    'empty, stocked, or a specific range is on the AH?',
+                                    green_words=[item_name])
+    print_and_log(message)
+    script_type = get_option_user_input({'empty', 'stocked', 'range'},
+                                        'Type %s, %s, or %s and press enter.\n' % (greenify('empty'),
+                                                                                   greenify('stocked'),
+                                                                                   greenify('range')))
+    is_count_down = script_type == 'empty'
+    is_range = script_type == 'range'
+
+    # Determine the lower and upper ranges if the script type is range
+    lower_bound = 0
+    upper_bound = 0
+    if is_range:
+        lower_message = line_breakify_message('Type the lowest number in the range (inclusive) and press enter.',
+                                              green_words=['lowest number'])
+        lower_bound = get_int_user_input(lower_message)
+
+        upper_message = line_breakify_message('Type the highest number in the range (inclusive) and press enter.',
+                                              green_words=['highest number'])
+        upper_bound = get_int_user_input(upper_message)
+    return {
+        'is_count_down': is_count_down,
+        'is_range': is_range,
+        'lower_bound': lower_bound,
+        'upper_bound': upper_bound,
+    }
+
+
+def get_boolean_input():
+    answer = get_option_user_input({'y', 'n'},
+                                   'Type "%s" or "%s" and press enter.\n' % (greenify('y'),
+                                                                             greenify('n')))
+    return answer == 'y'
+
+
+def get_should_retry():
+    print_and_log('\nWould you like to resume the script and keep trying?', YELLOW)
+    restart_options = {'should_restart': False}
+    restart_options['should_retry'] = get_boolean_input()
+    return restart_options
+
+
+def get_should_restart():
+    print_and_log('\nWould you like to run the script again?')
+    restart_options = {'should_retry': False}
+    restart_options['should_restart'] = get_boolean_input()
+    return restart_options
+
+
+def get_send_grid_key():
+    file_path = 'data/send_grid_key.txt'
+    send_grid_key = get_file_data(file_path)
+    if send_grid_key is None:
+        send_grid_key = get_string_user_input('Paste your %s and press enter.' % (greenify('Send Grid API key')),
+                                              lower=False)
+        store_data(file_path, send_grid_key)
+    return send_grid_key
+
+
+def get_email_notification_address():
+    file_path = 'data/notification_address.txt'
+    notification_address = get_file_data(file_path)
+    if notification_address is None:
+        notification_address = get_string_user_input('Type the email address to notify and press enter')
+        store_data(file_path, notification_address)
+    return notification_address
+
+
+def get_server_id():
+    file_path = 'data/server_id.txt'
+    server_id = get_file_data(file_path)
+    if server_id is None:
+        server_name = get_option_user_input(SERVER_NAME_TO_SID.keys(),
+                                            '\nType the %s and press enter.\n' % (greenify('FFXI server name')))
+        server_id = SERVER_NAME_TO_SID[server_name]
+        store_data(file_path, server_id)
+    return server_id
+
+
+def get_sleep_time():
+    file_path = 'data/sleep_time.txt'
+    sleep_time = get_file_data(file_path)
+    if sleep_time is None:
+        sleep_time = 0
+        message = line_breakify_message('Type the number of minutes to wait between requests and press enter.',
+                                        green_words=['number of minutes'])
+        while sleep_time < 1:
+            sleep_time = get_int_user_input(message)
+            if sleep_time < 1:
+                print_and_log('Must supply an integer greater than 0.', YELLOW)
+
+        store_data(file_path, str(sleep_time))
+    return int(sleep_time)
+
+
+#######################################################################################################################
+#                                                    Notifications                                                    #
+#######################################################################################################################
+def setup_logging(item_name):
+    create_folder('logs')
+
+    # Kill any previously existing handlers
+    for handler in logging.root.handlers[:]:
+        logging.root.removeHandler(handler)
+
+    # Setup logging
+    filename = 'logs/%s.log' % (item_name)
+    logging.basicConfig(filename=filename, filemode='w', level=logging.DEBUG)
+
+
+def log(message):
+    logging.debug(message)
+
+
+def print_and_log(message, color=None, indent=False):
+    log(message)
+
+    message = format_message(message, color, indent)
+    print message
+
+    # In order to ensure the terminal renders the print
+    sys.stdout.flush()
+
+
+def print_failure_and_sleep(consecutive_failures):
+    print_and_log('Re-attempting %s out of %s times after sleeping' %
+                  (consecutive_failures, MAX_RETRIES), YELLOW)
+    sleep(5)
+
+
+def handle_and_log_error(consecutive_failures, attempt_message, final_failure_message):
+    print_and_log(attempt_message, RED)
+    if consecutive_failures == MAX_RETRIES:
+        print_and_log(final_failure_message)
+        print_and_log('---------------------------------------------------------', RED)
+    if consecutive_failures != MAX_RETRIES:
+        print_failure_and_sleep(consecutive_failures + 1)
+
+
+def send_email(item_name, url, message):
+    notification_address = get_email_notification_address()
+    mail = Mail(
+        from_email='xi_day_trader <notifications@xi_day_trader>',
+        to_emails=notification_address,
+        subject='%s notification' % item_name,
+        html_content='<h2>xi_day_trader is notifying you: <br/> <a href="%s">%s</a>.</h2>' % (url, message))
+
+    api_key = get_send_grid_key()
+    try:
+        sg = SendGridAPIClient(api_key=api_key)
+        response = sg.send(mail)
+        log(response.status_code)
+        log(response.body)
+        log(response.headers)
+    except Exception as e:
+        print_and_log('\n%s %s' % (redify('Failed to notify'), notification_address))
+        print_and_log(e)
+    else:
+        print_and_log('\n%s %s' % (greenify('Successfully notified'), notification_address))
+
+
+#######################################################################################################################
+#                                                   Text Utilities                                                    #
+#######################################################################################################################
+def greenify(message):
+    return crayons.green(message, bold=True)
+
+
+def redify(message):
+    return crayons.red(message, bold=True)
+
+
+def line_breakify_message(message, green_words=None):
+    length = len(message)
+    if length <= MAX_LINE_LENGTH:
+        return message
+
+    # Convert the message into a 2D list where each row represents
+    # a line of text fitting under MAX_LINE_LENGTH
+    words = message.split()
+    word_matrix = [[]]
+    row = 0
+    characters_in_line = 0
+    for word in words:
+        characters_in_line += len(word) + 1
+        if characters_in_line >= MAX_LINE_LENGTH:
+            # Start a new line
+            row += 1
+            word_matrix.append([])
+            characters_in_line = len(word) + 1
+        word_matrix[row].append(word)
+
+    # Convert the 2D list into a single string with line breaks
+    updated_message = '\n'
+    for i in range(0, row + 1):
+        updated_message += '%s\n' % (' '.join(word_matrix[i]).strip())
+
+    # Apply optional styling
+    if isinstance(green_words, list):
+        for word in green_words:
+            updated_message = updated_message.replace(word, str(greenify(word)))
+
+    return updated_message
+
+
+def format_message(message, color, indent):
+    if indent:
+        message = '   %s' % message
+    if color == RED:
+        message = redify(message)
+    elif color == YELLOW:
+        message = crayons.yellow(message)
+    elif color == GREEN:
+        message = greenify(message)
+    return message
 
 
 def get_is_or_are(number):
     if number == 1:
         return 'is'
     return 'are'
+
+
+#######################################################################################################################
+#                                                    Misc Utilities                                                   #
+#######################################################################################################################
+def sleep(sleep_time):
+    plural = ''
+    if sleep_time > 1:
+        plural = 's'
+    print_and_log('Sleeping for %s minute%s \n' % (sleep_time, plural), indent=True)
+    time.sleep(sleep_time * 60)
 
 
 def create_folder(folder_name):
@@ -256,221 +535,12 @@ def parse_url(url):
     return stack_split_list[0], {}
 
 
-def get_item_name(url):
-    # Parse the item_name out of the url, accounting for stack pages
-    # Ex: https://www.ffxiah.com/item_name/4752/fire-crystal
-    #     https://www.ffxiah.com/item_name/4096/fire-crystal/?stack=1
-    base_url, query_params = parse_url(url)
-    item_name_split_list = base_url.rsplit('/', 1)
-    if len(item_name_split_list) < 2:
-        raise ValueError('Must supply an entire ffxiah url')
-    item_name = item_name_split_list[1]
-
-    # The url was for a stack so add the suffix
-    if query_params:
-        item_name += '-stack'
-
-    return item_name
+def is_stock_empty(total_count_in_stock):
+    return total_count_in_stock == 0
 
 
-def get_user_sript_type_input():
-    answer = None
-    acceptable_answers = {'empty', 'stocked', 'range'}
-    while answer not in acceptable_answers:
-        answer = raw_input('Type "empty", "stocked", or "range" and press enter. \n').lower().strip()
-    return answer
-
-
-def get_int_input(message):
-    answer = None
-    while not isinstance(answer, int):
-        answer = raw_input(message)
-        try:
-            answer = int(answer)
-        except:
-            print_and_log('Expected an integer, received %s' % type(answer), YELLOW)
-    return answer
-
-
-def get_string_user_input(message, lower=True):
-    user_input = ''
-    while not user_input:
-        user_input = raw_input('\n%s \n' % message).strip()
-        if lower:
-            user_input = user_input.lower()
-    return user_input
-
-
-def get_sleep_time_user_input():
-    sleep_time = 0
-    while sleep_time < 1:
-        sleep_time = get_int_input('\nType the number of minutes to wait between requests and press enter. \n')
-        if sleep_time < 1:
-            print_and_log('Must supply an integer greater than 0.', YELLOW)
-    return sleep_time
-
-
-def get_server_id_user_input():
-    server_name = ''
-    while not server_name in SERVER_NAME_TO_SID.keys():
-        server_name = raw_input('\nType the FFXI server name and press enter. \n').lower().strip()
-    return SERVER_NAME_TO_SID[server_name]
-
-
-def get_send_grid_key():
-    file_path = 'data/send_grid_key.txt'
-    send_grid_key = get_file_data(file_path)
-    if send_grid_key is None:
-        send_grid_key = get_string_user_input('Paste your Send Grid API key and press enter.', lower=False)
-        store_data(file_path, send_grid_key)
-    return send_grid_key
-
-
-def get_config_options(item_name):
-    print_and_log(('\nWould you like this script to alert when %s is empty, stocked, ' % item_name) +
-                  '\nor a specific range is on the AH?', GREEN)
-    answer = get_user_sript_type_input()
-    is_count_down = answer == 'empty'
-    is_range = answer == 'range'
-
-    # Determine the lower and upper ranges if the script type is range
-    lower_bound = 0
-    upper_bound = 0
-    if is_range:
-        lower_bound = get_int_input('\nType the *lowest* number in the range (inclusive) and press enter. \n')
-        upper_bound = get_int_input('\nType the *highest* number in the range (inclusive) and press enter. \n')
-
-    return {
-        'is_count_down': is_count_down,
-        'is_range': is_range,
-        'lower_bound': lower_bound,
-        'upper_bound': upper_bound,
-    }
-
-
-def get_email_notification_address():
-    file_path = 'data/notification_address.txt'
-    notification_address = get_file_data(file_path)
-    if notification_address is None:
-        notification_address = get_string_user_input('Type the email address to notify and press enter')
-        store_data(file_path, notification_address)
-    return notification_address
-
-
-def get_server_id():
-    file_path = 'data/server_id.txt'
-    server_id = get_file_data(file_path)
-    if server_id is None:
-        server_id = get_server_id_user_input()
-        store_data(file_path, server_id)
-    return server_id
-
-
-def get_sleep_time():
-    file_path = 'data/sleep_time.txt'
-    sleep_time = get_file_data(file_path)
-    if sleep_time is None:
-        sleep_time = get_sleep_time_user_input()
-        store_data(file_path, str(sleep_time))
-    return int(sleep_time)
-
-
-def setup_send_grid():
-    get_send_grid_key()
-    get_email_notification_address()
-
-
-def setup_logging(item_name):
-    create_folder('logs')
-
-    # Kill any previously existing handlers
-    for handler in logging.root.handlers[:]:
-        logging.root.removeHandler(handler)
-
-    # Setup logging
-    filename = 'logs/%s.log' % (item_name)
-    logging.basicConfig(filename=filename, filemode='w', level=logging.DEBUG)
-
-
-def send_email(message, item_name, url):
-    notification_address = get_email_notification_address()
-    mail = Mail(
-        from_email='xi_day_trader <notifications@graulr.xi>',
-        to_emails=notification_address,
-        subject='%s notification' % item_name,
-        html_content='<h2>xi_day_trader is notifying you that <a href="%s">%s</a>.</h2>' % (url, message.lower()))
-
-    api_key = get_send_grid_key()
-    try:
-        sg = SendGridAPIClient(api_key=api_key)
-        response = sg.send(mail)
-        log(response.status_code)
-        log(response.body)
-        log(response.headers)
-    except Exception as e:
-        print_and_log('\n%s %s' % (redify('Failed to notify'), notification_address))
-        print_and_log(e)
-    else:
-        print_and_log('\n%s %s' % (greenify('Successfully notified'), notification_address))
-
-
-def notify_success(item_name, title, message, url):
-    send_email(message, item_name, url)
-    tkMessageBox.showinfo(title, message)
-
-
-def handle_and_log_error(consecutive_failures, attempt_message, final_failure_message):
-    print_and_log(attempt_message, RED)
-    if consecutive_failures == 5:
-        print_and_log(final_failure_message, RED, flush=True)
-    if consecutive_failures != 5:
-        print_failure_and_sleep(consecutive_failures + 1)
-
-
-def greenify(message):
-    return crayons.green(message, bold=True)
-
-
-def redify(message):
-    return crayons.red(message, bold=True)
-
-
-def format_message(message, color, indent):
-    if indent:
-        message = '   %s' % message
-    if color == RED:
-        message = redify(message)
-    elif color == YELLOW:
-        message = crayons.yellow(message)
-    elif color == GREEN:
-        message = greenify(message)
-    return message
-
-
-def log(message):
-    logging.debug(message)
-
-
-def print_and_log(message, color=None, indent=False, flush=False):
-    log(message)
-
-    message = format_message(message, color, indent)
-    print message
-
-    # In order to ensure the terminal renders the print
-    # flush the stdout when supplied
-    if flush:
-        sys.stdout.flush()
-
-
-def sleep(sleep_time):
-    print_and_log('Sleeping for %s minutes \n' % sleep_time, indent=True, flush=True)
-    time.sleep(sleep_time*60)
-
-
-def print_failure_and_sleep(consecutive_failures):
-    print_and_log('Re-attempting %s out of 5 times after sleeping' % consecutive_failures, YELLOW)
-    sleep(1)
+def is_stock_within_range(total_count_in_stock, lower_bound, upper_bound):
+    return total_count_in_stock >= lower_bound and total_count_in_stock <= upper_bound
 
 
 # Run the script
