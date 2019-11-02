@@ -25,16 +25,13 @@ Requires you have:
 
 ### One time setup:
 
-##### The first time you run xi_day_trader you will have to enter some setup info.  The data is saved in the `xi_day_trader/data` folder and will not be requested on future runs.
-
 #### 1. Open the unzipped xi_day_trader folder, click `xi_day_trader_win` or `xi_day_trader_mac` depending on your operating system and create a shortcut to your desktop.
 ![](https://i.imgur.com/gwgT0po.gif)
 
 #### 2. While logged into send grid, navigate to account management and then to the api keys section.  Create a new full access key, copy it, and paste it into the console.
 ![](https://i.imgur.com/nugO3BD.gif)
 
-#### 3. Follow the prompts to enter additional information required to complete the setup.
-![](https://i.imgur.com/WrP9HsZ.gif)
+##### Setup data is saved in the `xi_day_trader/data` folder and will not be requested on future runs.
 
 # Usage:
 
@@ -44,4 +41,3 @@ Requires you have:
 #### 2. When the conditions for your search are met, a notification will be emailed to the address you setup earlier.
 ![](https://i.imgur.com/dbqbdMo.gif)
 ##### ^ In order to demonstrate the success case, I set the script to check for stocked fire crystal stacks.
-
