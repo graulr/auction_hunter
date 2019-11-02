@@ -6,14 +6,12 @@
 - Wanted to spend less time checking ffxiah?
 
 ### xi_day_trader is a script that can do all of these things!
-#### Simply supply a ffxiah url and specify when you want to be notified.
-- Windows & Mac compatible
-- Notifies via email
-- Multiple scripts can run at a time
-- Double click to run & install
+##### Simply supply a ffxiah url and specify when you want to be notified.
 
 # Setup
-Requires you have: 
+- Windows & Mac compatible
+
+This script requires you have: 
 - python 2.7.xx [installed](https://www.python.org/downloads/release/python-2716/)
 - Created a free [send grid account](https://signup.sendgrid.com/)
 
