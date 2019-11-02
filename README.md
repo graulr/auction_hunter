@@ -31,6 +31,7 @@ Requires you have:
 #### 2. While logged into send grid, navigate to account management and then to the api keys section.  Create a new full access key, copy it, and paste it into the console.
 ![](https://i.imgur.com/nugO3BD.gif)
 
+#### 3. Follow the prompts entering additional information required to complete the one time setup.
 ##### Setup data is saved in the `xi_day_trader/data` folder and will not be requested on future runs.
 
 # Usage:
