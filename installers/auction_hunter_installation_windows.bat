@@ -6,5 +6,5 @@ CALL C:\Python27\Scripts\pip install lxml --user
 CALL C:\Python27\Scripts\pip install colorama --user
 CALL C:\Python27\Scripts\pip install crayons --user
 CALL C:\Python27\Scripts\pip install sendgrid --user
-echo XI Day Trader Installation Complete!
+echo auction_hunter Installation Complete!
 PAUSE

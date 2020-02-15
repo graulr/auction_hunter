@@ -37,7 +37,7 @@ SERVER_NAME_TO_SID = {
 }
 
 PATH_TO_SCRIPT = os.path.dirname(os.path.abspath(__file__))
-XI_DAY_TRADER_DIRECTORY_PATH = PATH_TO_SCRIPT[0:len(PATH_TO_SCRIPT)-6]
+AUCTION_HUNTER_DIRECTORY_PATH = PATH_TO_SCRIPT[0:len(PATH_TO_SCRIPT)-6]
 
 HEADERS = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) ' +
                          'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
@@ -47,7 +47,7 @@ HEADERS = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) ' +
 # the item value matches the users specification.  The user is then notified via email.
 def main():
     colorama.init()
-    print_and_log('\n-----================ xi_day_trader ================-----', GREEN)
+    print_and_log('\n-----================ auction_hunter ================-----', GREEN)
     print_and_log('Type ctrl + c at any time to quit (cmd + c for mac).', YELLOW)
 
     # Create the data folder if it does not exist
@@ -400,10 +400,10 @@ def handle_and_log_error(consecutive_failures, attempt_message, final_failure_me
 def send_email(item_name, url, message):
     notification_address = get_email_notification_address()
     mail = Mail(
-        from_email='xi_day_trader <notifications@xi_day_trader>',
+        from_email='auction_hunter <notifications@auction_hunter>',
         to_emails=notification_address,
         subject='%s notification' % item_name,
-        html_content='<h2>xi_day_trader is notifying you: <br/> <a href="%s">%s</a>.</h2>' % (url, message))
+        html_content='<h2>auction_hunter is notifying you: <br/> <a href="%s">%s</a>.</h2>' % (url, message))
 
     api_key = get_send_grid_key()
     try:
@@ -493,14 +493,14 @@ def sleep(sleep_time):
 
 
 def get_combined_path(path):
-    return '%s/%s' % (XI_DAY_TRADER_DIRECTORY_PATH, path)
+    return '%s/%s' % (AUCTION_HUNTER_DIRECTORY_PATH, path)
 
 
 def create_folder(folder_name):
     has_folder = False
 
     # Check if a folder exists
-    files = [f for f in os.listdir(XI_DAY_TRADER_DIRECTORY_PATH)]
+    files = [f for f in os.listdir(AUCTION_HUNTER_DIRECTORY_PATH)]
     for f in files:
         if f == folder_name:
             has_folder = True
