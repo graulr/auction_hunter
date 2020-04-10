@@ -10,7 +10,7 @@
 
 # Setup
 This script works on Windows & Mac and requires you have:
-- python 2.7.xx [installed](https://www.python.org/downloads/release/python-2716/)
+- python 3.7.xx [installed](https://www.python.org/downloads/release/python-377/)
 - Created a free [send grid account](https://signup.sendgrid.com/)
 
 ### Installation:
