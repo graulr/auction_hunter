@@ -100,7 +100,7 @@ def check_ffxiah(cookies, url, item_name, sleep_time, config_options):
             log('params: %s' % url_params)
             log('cookies: %s' % cookies)
             response = requests.get(base_url, headers=HEADERS, cookies=cookies, params=url_params)
-        except requests.ConnectionError, e:
+        except requests.ConnectionError as e:
             handle_and_log_error(consecutive_failures,
                                  'An exception was encountered requesting FFXIAH: \n%s' % e,
                                  'Failed to request FFXIAH %s consecutive times.' % redify(MAX_RETRIES))
@@ -127,7 +127,7 @@ def check_ffxiah(cookies, url, item_name, sleep_time, config_options):
         total_count_in_stock = 0
         try:
             total_count_in_stock = int(current_stock[0].text)
-        except Exception, e:
+        except Exception as e:
             handle_and_log_error(consecutive_failures,
                                  'Could not parse stock count: \n%s' % e,
                                  'Failed to parse stock count %s consecutive times.' % redify(MAX_RETRIES))
@@ -208,7 +208,8 @@ def check_ffxiah(cookies, url, item_name, sleep_time, config_options):
 def get_int_user_input(message):
     answer = None
     while not isinstance(answer, int):
-        answer = raw_input(message)
+        print_and_log(message)
+        answer = input()
         try:
             answer = int(answer)
         except:
@@ -219,7 +220,8 @@ def get_int_user_input(message):
 def get_string_user_input(message, lower=True):
     user_input = ''
     while not user_input:
-        user_input = raw_input('\n%s \n' % message).strip()
+        print_and_log('\n%s' % message)
+        user_input = input().strip()
         if lower:
             user_input = user_input.lower()
     return user_input
@@ -228,7 +230,8 @@ def get_string_user_input(message, lower=True):
 def get_option_user_input(options, message):
     answer = None
     while answer not in options:
-        answer = raw_input(message)
+        print_and_log(message)
+        answer = input()
         answer = answer.lower().strip()
     return answer
 
@@ -250,7 +253,7 @@ def get_ffxiah_url_and_item():
             # The url was for a stack so add the suffix
             if query_params:
                 item_name += '-stack'
-        except ValueError, e:
+        except ValueError as e:
             print_and_log(e, YELLOW)
     return url, item_name
 
@@ -261,7 +264,7 @@ def get_config_options(item_name):
                                     green_words=[item_name])
     print_and_log(message)
     script_type = get_option_user_input({'empty', 'stocked', 'range'},
-                                        'Type %s, %s, or %s and press enter.\n' % (greenify('empty'),
+                                        'Type %s, %s, or %s and press enter.' % (greenify('empty'),
                                                                                    greenify('stocked'),
                                                                                    greenify('range')))
     is_count_down = script_type == 'empty'
@@ -288,8 +291,8 @@ def get_config_options(item_name):
 
 def get_boolean_input():
     answer = get_option_user_input({'y', 'n'},
-                                   'Type "%s" or "%s" and press enter.\n' % (greenify('y'),
-                                                                             greenify('n')))
+                                   'Type "%s" or "%s" and press enter.' % (greenify('y'),
+                                                                           greenify('n')))
     return answer == 'y'
 
 
@@ -330,8 +333,8 @@ def get_server_id():
     file_path = 'data/server_id.txt'
     server_id = get_file_data(file_path)
     if server_id is None:
-        server_name = get_option_user_input(SERVER_NAME_TO_SID.keys(),
-                                            '\nType the %s and press enter.\n' % (greenify('FFXI server name')))
+        server_name = get_option_user_input(list(SERVER_NAME_TO_SID.keys()),
+                                            '\nType the %s and press enter.' % (greenify('FFXI server name')))
         server_id = SERVER_NAME_TO_SID[server_name]
         store_data(file_path, server_id)
     return server_id
@@ -376,7 +379,7 @@ def print_and_log(message, color=None, indent=False):
     log(message)
 
     message = format_message(message, color, indent)
-    print message
+    print(message)
 
     # In order to ensure the terminal renders the print
     sys.stdout.flush()
@@ -453,7 +456,10 @@ def line_breakify_message(message, green_words=None):
     # Convert the 2D list into a single string with line breaks
     updated_message = '\n'
     for i in range(0, row + 1):
-        updated_message += '%s\n' % (' '.join(word_matrix[i]).strip())
+        newline = '\n'
+        if i == row:
+            newline = ''
+        updated_message += '%s%s' % ((' '.join(word_matrix[i]).strip()), newline)
 
     # Apply optional styling
     if isinstance(green_words, list):

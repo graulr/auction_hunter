@@ -1,10 +1,10 @@
 mode con:cols=100
-CALL C:\Python27\python get-pip.py
-CALL C:\Python27\Scripts\pip install requests --user
-CALL C:\Python27\Scripts\pip install beautifulsoup4 --user
-CALL C:\Python27\Scripts\pip install lxml --user
-CALL C:\Python27\Scripts\pip install colorama --user
-CALL C:\Python27\Scripts\pip install crayons --user
-CALL C:\Python27\Scripts\pip install sendgrid --user
+CALL python3 get-pip.py
+CALL pip3 install requests --user
+CALL pip3 install beautifulsoup4 --user
+CALL pip3 install lxml --user
+CALL pip3 install colorama --user
+CALL pip3 install crayons --user
+CALL pip3 install sendgrid --user
 echo auction_hunter Installation Complete!
 PAUSE
