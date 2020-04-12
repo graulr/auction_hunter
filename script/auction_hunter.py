@@ -257,7 +257,7 @@ def handle_inventory_target_not_reached(total_in_stock, ah_url):
     return Results.CONTINUE_SEARCHING
 
 
-def get_inventory_config(item_):
+def get_inventory_config(item_name):
     message = line_breakify_message(('Would you like to be notified when %s is ' % item_name) +
                                     'empty, stocked, or a specific range is on the AH?')
     print_and_log(message)
@@ -390,7 +390,7 @@ def check_player(ah_url, attempt, config):
 
 
 def check_player_any_sale(transaction, ah_url, attempt):
-    print_and_log('#%s check for %s sales:' % (greenify(attempt), ah_url.tail))
+    print_and_log('#%s check for %s sales:' % (greenify(attempt), greenify(ah_url.tail)))
 
     # New sale
     if transaction.get('saleon') > global_last_sale.get('saleon'):
@@ -438,7 +438,7 @@ def parse_latest_player_sale(scripts, player_name):
 
 def handle_player_sale_complete(item_name, ah_url):
     player_name = ah_url.tail
-    print_and_log('%s sold a %w' % (player_name.capitalize(), item_name), color=Colors.GREEN, indent=True)
+    print_and_log('%s sold a %s' % (player_name.capitalize(), item_name), color=Colors.GREEN, indent=True)
     send_email(ah_url, '%s sold a %s' % (player_name.capitalize(), item_name))
     return Results.COMPLETED
 
