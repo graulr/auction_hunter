@@ -48,6 +48,9 @@ ERROR_SLEEP_TIME = 5
 MAX_RETRIES = 5
 MAX_LINE_LENGTH = 57
 
+PATH_TO_SCRIPT = os.path.dirname(os.path.abspath(__file__))
+AUCTION_HUNTER_DIRECTORY_PATH = PATH_TO_SCRIPT[0:len(PATH_TO_SCRIPT)-6]
+
 SERVER_NAME_TO_SID = {
     'asura': '28',
     'bahamut': '1',
@@ -67,9 +70,6 @@ SERVER_NAME_TO_SID = {
     'valefor': '9',
 }
 
-PATH_TO_SCRIPT = os.path.dirname(os.path.abspath(__file__))
-AUCTION_HUNTER_DIRECTORY_PATH = PATH_TO_SCRIPT[0:len(PATH_TO_SCRIPT)-6]
-
 HEADERS = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) ' +
                          'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
 
@@ -77,10 +77,9 @@ global_sleep_time = 5
 global_cookies = {'sid': 28}
 global_last_sale = None
 
+
 # This script fetches the supplied ffxiah url, checks the item value, & repeats util
 # the item value matches the users specification.  The user is then notified via email.
-
-
 def main():
     colorama.init()
     print_and_log('\n-----================ auction_hunter ================-----', Colors.GREEN)
@@ -116,15 +115,16 @@ def main():
 
         # Get the config options from the user
         config = get_config(hunt_mode, ah_url)
+        set_global_sleep_time(config)
 
         continue_options['should_retry'] = True
         while continue_options.get('should_retry', False):
 
             # Start checking ffxiah and get any restart options afterwards
-            continue_options = check_ffxiah(ah_url, hunt_mode, config)
+            continue_options = check_ffxiah(ah_url, config)
 
 
-def check_ffxiah(ah_url, hunt_mode, config):
+def check_ffxiah(ah_url, config):
     print_and_log('\n-----=============== Checking FFXIAH ===============-----', Colors.GREEN)
     attempt = 0  # A count of attempts for logging
     consecutive_failures = 0  # A count of consecutive failures
@@ -140,15 +140,15 @@ def check_ffxiah(ah_url, hunt_mode, config):
 
         try:
             # Inventory mode
-            if hunt_mode == Modes.INVENTORY:
+            if config['hunt_mode'] == Modes.INVENTORY:
                 result = check_inventory(ah_url, attempt, config)
 
             # Price mode
-            elif hunt_mode == Modes.PRICE:
+            elif config['hunt_mode'] == Modes.PRICE:
                 result = check_price(ah_url, attempt, config)
 
             # Player mode
-            elif hunt_mode == Modes.PLAYER:
+            elif config['hunt_mode'] == Modes.PLAYER:
                 result = check_player(ah_url, attempt, config)
 
         except HandledException as e:
@@ -175,6 +175,9 @@ def check_ffxiah(ah_url, hunt_mode, config):
                 continue
 
             elif result == Results.COMPLETED:
+                # Reset the global last sale
+                global global_last_sale
+                global_last_sale = None
                 return get_restart_options()
 
         # We have no result, kill the loop
@@ -208,7 +211,9 @@ def check_inventory(ah_url, attempt, config):
 
 
 def check_inventory_empty(total_in_stock, ah_url, attempt):
-    print_and_log('#%s check for %s %s:' % (greenify(attempt), greenify('empty'), ah_url.tail))
+    message = line_breakify('#%s check for %s %s:' % (attempt, 'empty', ah_url.tail),
+                            green_words=[attempt, 'empty'])
+    print_and_log(message)
 
     # If there are 0 in stock:
     if total_in_stock == 0:
@@ -219,7 +224,9 @@ def check_inventory_empty(total_in_stock, ah_url, attempt):
 
 
 def check_inventory_stocked(total_in_stock, ah_url, attempt):
-    print_and_log('#%s check for %s %s:' % (greenify(attempt), greenify('stocked'), ah_url.tail))
+    message = line_breakify('#%s check for %s %s:' % (attempt, 'stocked', ah_url.tail),
+                            green_words=[attempt, 'stocked'])
+    print_and_log(message)
 
     # If there are 0 in stock:
     if total_in_stock != 0:
@@ -232,8 +239,10 @@ def check_inventory_stocked(total_in_stock, ah_url, attempt):
 def check_inventory_range(total_in_stock, ah_url, attempt, config):
     lower_bound = config['lower_bound']
     upper_bound = config['upper_bound']
-    print_and_log('#%s check for %s within %s (%s - %s):' %
-                  (greenify(attempt), ah_url.tail, greenify('range'), lower_bound, upper_bound))
+    message = line_breakify('#%s check for %s within %s (%s - %s):' % (
+                            attempt, ah_url.tail, 'range', lower_bound, upper_bound),
+                            green_words=[attempt, 'range'])
+    print_and_log(message)
 
     # Within range
     if is_within_range(total_in_stock, lower_bound, upper_bound):
@@ -258,8 +267,8 @@ def handle_inventory_target_not_reached(total_in_stock, ah_url):
 
 
 def get_inventory_config(item_name):
-    message = line_breakify_message(('Would you like to be notified when %s is ' % item_name) +
-                                    'empty, stocked, or a specific range is on the AH?')
+    message = line_breakify(('Would you like to be notified when %s is ' % item_name) +
+                            'empty, stocked, or a specific range is on the AH?')
     print_and_log(message)
     script_type = get_option_user_input({'empty', 'stocked', 'range'},
                                         'Type %s, %s, or %s and press enter.' % (greenify('empty'),
@@ -272,15 +281,16 @@ def get_inventory_config(item_name):
     lower_bound = 0
     upper_bound = 0
     if is_range:
-        lower_message = line_breakify_message('Type the lowest number in the range (inclusive) and press enter.',
-                                              green_words=['lowest number'])
+        lower_message = line_breakify('Type the lowest number in the range (inclusive) and press enter.',
+                                      green_words=['lowest number'])
         lower_bound = get_int_user_input(lower_message)
 
-        upper_message = line_breakify_message('Type the highest number in the range (inclusive) and press enter.',
-                                              green_words=['highest number'])
+        upper_message = line_breakify('Type the highest number in the range (inclusive) and press enter.',
+                                      green_words=['highest number'])
         upper_bound = get_int_user_input(upper_message)
 
     return {
+        'hunt_mode': Modes.INVENTORY,
         'is_count_down': is_count_down,
         'is_range': is_range,
         'lower_bound': lower_bound,
@@ -309,7 +319,10 @@ def check_price(ah_url, attempt, config):
 
 
 def check_price_greater(last_sale_price, ah_url, attempt, target_price):
-    print_and_log('#%s check for %s price at or above %s:' % (greenify(attempt), ah_url.tail, greenify(target_price)))
+    message = line_breakify('#%s check for %s price at or above %s:' % (
+                            attempt, ah_url.tail, target_price),
+                            green_words=[attempt, target_price])
+    print_and_log(message)
 
     # Greater or equal to
     if last_sale_price >= target_price:
@@ -320,7 +333,10 @@ def check_price_greater(last_sale_price, ah_url, attempt, target_price):
 
 
 def check_price_less(last_sale_price, ah_url, attempt, target_price):
-    print_and_log('#%s check for %s price at or below %s:' % (greenify(attempt), ah_url.tail, greenify(target_price)))
+    message = line_breakify('#%s check for %s price at or below %s:' % (
+                            attempt, ah_url.tail, target_price),
+                            green_words=[attempt, target_price])
+    print_and_log(message)
 
     # Less than or equal to
     if last_sale_price <= target_price:
@@ -355,8 +371,8 @@ def parse_last_sale_price_from_scripts(scripts):
 def get_price_config(item_name):
     target_price = get_int_user_input('\nType the %s you would like to target and press enter' % greenify('price'))
 
-    message = line_breakify_message(('Would you like to be notified when the price of %s is ' % item_name) +
-                                    'above or below %s? (inclusive)' % target_price)
+    message = line_breakify(('Would you like to be notified when the price of %s is ' % item_name) +
+                            'above or below %s? (inclusive)' % target_price)
     print_and_log(message)
     script_type = get_option_user_input({'above', 'below', },
                                         'Type %s or %s and press enter.' % (greenify('above'),
@@ -364,6 +380,7 @@ def get_price_config(item_name):
     is_greater = script_type == 'above'
 
     return {
+        'hunt_mode': Modes.PRICE,
         'target_price': target_price,
         'is_greater': is_greater
     }
@@ -390,7 +407,9 @@ def check_player(ah_url, attempt, config):
 
 
 def check_player_any_sale(transaction, ah_url, attempt):
-    print_and_log('#%s check for %s sales:' % (greenify(attempt), greenify(ah_url.tail)))
+    message = line_breakify('#%s check for %s sales:' % (attempt, ah_url.tail),
+                            green_words=[attempt, ah_url.tail])
+    print_and_log(message)
 
     # New sale
     if transaction.get('saleon') > global_last_sale.get('saleon'):
@@ -401,8 +420,10 @@ def check_player_any_sale(transaction, ah_url, attempt):
 
 
 def check_player_sold_specific_item(transaction, ah_url, attempt, search_item_name):
-    print_and_log('#%s check for %s %s sales:' % (
-        greenify(attempt), ah_url.tail, greenify(search_item_name)))
+    message = line_breakify('#%s check for %s %s sales:' % (
+                            attempt, ah_url.tail, search_item_name),
+                            green_words=[attempt, search_item_name])
+    print_and_log(message)
 
     # New sale
     if transaction.get('saleon') > global_last_sale.get('saleon') and transaction.get('en_name') == search_item_name:
@@ -449,8 +470,8 @@ def handle_no_player_sale(ah_url):
 
 
 def get_player_config(player_name):
-    message = line_breakify_message(('Would you like to be notified when any sale is made or when ') +
-                                    'a specific item is sold?')
+    message = line_breakify(('Would you like to be notified when any sale is made or when ') +
+                            'a specific item is sold?')
     print_and_log(message)
     script_type = get_option_user_input({'any', 'specific', },
                                         'Type %s or %s and press enter.' % (greenify('any'),
@@ -461,7 +482,10 @@ def get_player_config(player_name):
         specific_item_name = get_string_user_input(
             '\nType the %s you would like to target and press enter' % greenify('item'))
 
-    return {'specific_item_name': specific_item_name}
+    return {
+        'hunt_mode': Modes.PLAYER,
+        'specific_item_name': specific_item_name
+    }
 
 
 #######################################################################################################################
@@ -517,11 +541,12 @@ def get_ahurl():
                 raise ValueError('Must supply an entire ffxiah url')
 
             url_type = segments[1]
-            tail = segments[3]
+            tail = segments[3].lower()
 
             # The url was for a stack so add the suffix
             if query_params:
                 tail += '-stack'
+
         except ValueError as e:
             print_and_log(e, Colors.YELLOW)
 
@@ -593,26 +618,29 @@ def get_hunt_mode(url_type):
         return Modes.PLAYER
 
     else:
-        print_and_log(line_breakify_message('Would you like this script to hunt based on inventory or price?'))
+        print_and_log(line_breakify('Would you like this script to hunt based on inventory or price?'))
         hunt_mode = get_option_user_input({Modes.INVENTORY.value, Modes.PRICE.value},
                                           'Type %s or %s and press enter.' % (greenify('inventory'),
                                                                               greenify('price')))
         return Modes[hunt_mode.upper()]
 
 
-def set_global_sleep_time():
-    file_path = 'data/sleep_time.txt'
-    sleep_time = get_file_data(file_path)
-    if sleep_time is None:
-        sleep_time = 0
-        message = line_breakify_message('Type the number of minutes to wait between requests and press enter.',
-                                        green_words=['number of minutes'])
-        while sleep_time < 1:
-            sleep_time = get_int_user_input(message)
-            if sleep_time < 1:
-                print_and_log('Must supply an integer greater than 0.', Colors.YELLOW)
+def set_global_sleep_time(config=None):
+    if config and config['hunt_mode'] in {Modes.PRICE, Modes.PLAYER}:
+        sleep_time = 15
+    else:
+        file_path = 'data/sleep_time.txt'
+        sleep_time = get_file_data(file_path)
+        if sleep_time is None:
+            sleep_time = 0
+            message = line_breakify('Type the number of minutes to wait between requests and press enter.',
+                                    green_words=['number of minutes'])
+            while sleep_time < 1:
+                sleep_time = get_int_user_input(message)
+                if sleep_time < 1:
+                    print_and_log('Must supply an integer greater than 0.', Colors.YELLOW)
+            store_data(file_path, str(sleep_time))
 
-        store_data(file_path, str(sleep_time))
     global global_sleep_time
     global_sleep_time = int(sleep_time)
 
@@ -679,38 +707,38 @@ def redify(message):
     return crayons.red(message, bold=True)
 
 
-def line_breakify_message(message, green_words=None):
+def line_breakify(message, green_words=None):
     length = len(message)
-    if length <= MAX_LINE_LENGTH:
-        return message
+    updated_message = message
+    if length > MAX_LINE_LENGTH:
 
-    # Convert the message into a 2D list where each row represents
-    # a line of text fitting under MAX_LINE_LENGTH
-    words = message.split()
-    word_matrix = [[]]
-    row = 0
-    characters_in_line = 0
-    for word in words:
-        characters_in_line += len(word) + 1
-        if characters_in_line >= MAX_LINE_LENGTH:
-            # Start a new line
-            row += 1
-            word_matrix.append([])
-            characters_in_line = len(word) + 1
-        word_matrix[row].append(word)
+        # Convert the message into a 2D list where each row represents
+        # a line of text fitting under MAX_LINE_LENGTH
+        words = message.split()
+        word_matrix = [[]]
+        row = 0
+        characters_in_line = 0
+        for word in words:
+            characters_in_line += len(word) + 1
+            if characters_in_line >= MAX_LINE_LENGTH:
+                # Start a new line
+                row += 1
+                word_matrix.append([])
+                characters_in_line = len(word) + 1
+            word_matrix[row].append(word)
 
-    # Convert the 2D list into a single string with line breaks
-    updated_message = '\n'
-    for i in range(0, row + 1):
-        newline = '\n'
-        if i == row:
-            newline = ''
-        updated_message += '%s%s' % ((' '.join(word_matrix[i]).strip()), newline)
+        # Convert the 2D list into a single string with line breaks
+        updated_message = '\n'
+        for i in range(0, row + 1):
+            newline = '\n'
+            if i == row:
+                newline = ''
+            updated_message += '%s%s' % ((' '.join(word_matrix[i]).strip()), newline)
 
     # Apply optional styling
     if isinstance(green_words, list):
         for word in green_words:
-            updated_message = updated_message.replace(word, str(greenify(word)))
+            updated_message = updated_message.replace(str(word), str(greenify(word)))
 
     return updated_message
 
